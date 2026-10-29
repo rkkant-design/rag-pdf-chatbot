@@ -25,6 +25,7 @@ PDFs ─► chunk + metadata ─► embeddings ─► Chroma (vector DB)
 - **Clean ingestion.** Per-page loading with `source` + `page` metadata, then recursive
   character chunking with overlap.
 - **FastAPI `/chat` endpoint** and a **Streamlit chat UI**.
+- **MCP server** exposing the corpus as standard tools, so any Model Context Protocol host can use it.
 - **Evaluation harness** over sample questions (in-corpus answered, out-of-corpus refused),
   with a drop-in path to **RAGAS** metrics.
 - **Docker + docker-compose**, `.env` config, and runnable **sample PDFs** so it works out of
@@ -32,7 +33,7 @@ PDFs ─► chunk + metadata ─► embeddings ─► Chroma (vector DB)
 
 ## Stack
 
-Python · LangChain · OpenAI (chat + embeddings) · Chroma (vector DB) · FastAPI · Streamlit · Docker
+Python · LangChain · OpenAI (chat + embeddings) · Chroma (vector DB) · FastAPI · Streamlit · MCP · Docker
 
 ## Quickstart (local)
 
@@ -138,8 +139,42 @@ eval/
 scripts/
   make_sample_pdfs.py  generates runnable sample PDFs
 data/                  your PDFs (sample set included)
+mcp_server.py          MCP server exposing search_documents + ask_documents
 Dockerfile, docker-compose.yml
 ```
+
+## MCP server (Model Context Protocol)
+
+Beyond the REST API, the same knowledge base is exposed as an **MCP server**, so
+any MCP-compatible host (Claude Desktop, an IDE, an agent framework) can use these
+documents through one standard protocol instead of a bespoke integration per client.
+
+Two tools are exposed over stdio:
+- `search_documents(query, k)` — semantic search; returns the top passages with citations
+- `ask_documents(question)` — a grounded answer with sources, or an honest refusal
+
+Run it (after ingesting, with `OPENAI_API_KEY` set):
+
+```bash
+python mcp_server.py
+```
+
+Register it with an MCP host such as Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "rag-pdf-chatbot": {
+      "command": "python",
+      "args": ["/absolute/path/to/rag-pdf-chatbot/mcp_server.py"],
+      "env": { "OPENAI_API_KEY": "sk-..." }
+    }
+  }
+}
+```
+
+Why it matters: expose the capability once and every agent connects to it the same
+way — the N×M integration problem becomes N+M.
 
 ## Production notes
 
